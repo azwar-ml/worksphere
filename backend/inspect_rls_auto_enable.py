@@ -5,6 +5,10 @@ def main():
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
+    if not url or not key:
+        print("Error: Missing environment variables")
+        return
+
     rest_url = f"{url}/rest/v1/"
     headers = {
         "apikey": key,
