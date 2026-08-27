@@ -55,3 +55,36 @@ async def check_db_connection():
             "status": "error",
             "message": f"Failed to connect to Supabase: {str(e)}"
         }
+
+# --- Conversational RAG Router API ---
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+from app.services.conversational_rag import ConversationalRAGManager
+
+class ChatRequest(BaseModel):
+    query: str
+    chat_history: List[Dict[str, str]] = Field(default_factory=list)
+    target_id: Optional[str] = None
+
+# Initialize conversational RAG manager lazily
+conversational_rag_manager = None
+
+@app.post("/api/v1/chat")
+async def chat_endpoint(payload: ChatRequest):
+    global conversational_rag_manager
+    if conversational_rag_manager is None:
+        conversational_rag_manager = ConversationalRAGManager()
+        
+    try:
+        result = await conversational_rag_manager.route_and_query(
+            query=payload.query,
+            chat_history=payload.chat_history,
+            target_id=payload.target_id
+        )
+        return result
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=500,
+            detail=f"Conversational chat routing failed: {str(e)}"
+        )

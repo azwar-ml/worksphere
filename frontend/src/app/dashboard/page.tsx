@@ -27,7 +27,7 @@ interface Alert {
 
 export default function EmployeeDashboard() {
   const router = useRouter();
-  const { token, isAuthenticated, initialize, isLoading, role, clearAuth } = useAuthStore();
+  const { token, isAuthenticated, initialize, isLoading, role, status, clearAuth } = useAuthStore();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -48,12 +48,12 @@ export default function EmployeeDashboard() {
         router.push("/");
         return;
       }
-      if (role === "pending") {
+      if (status === "pending") {
         router.push("/pending");
         return;
       }
     }
-  }, [isAuthenticated, isLoading, role, router]);
+  }, [isAuthenticated, isLoading, status, router]);
 
   const loadData = async () => {
     if (!token) return;
@@ -159,10 +159,10 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-white transition-colors duration-300 flex overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 md:ml-64">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-theme-fg flex items-center gap-2">
@@ -189,7 +189,7 @@ export default function EmployeeDashboard() {
             {/* Dashboard Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Quick Attendance Card */}
-          <div className="glass rounded-xl p-6 flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider">Lab Session</span>
@@ -219,6 +219,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setIsWebcamOpen(true)}
               disabled={actionLoading}
               className={`w-full mt-6 py-2.5 rounded-lg text-sm font-semibold transition-all active:scale-[0.98] cursor-pointer ${
@@ -232,7 +233,7 @@ export default function EmployeeDashboard() {
           </div>
 
           {/* Direct Tasks Counter */}
-          <div className="glass rounded-xl p-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider">Research Targets</span>
               <CheckCircle className="h-5 w-5 text-theme-secondary" />
@@ -255,7 +256,7 @@ export default function EmployeeDashboard() {
           </div>
 
           {/* Active Alerts Indicator */}
-          <div className="glass rounded-xl p-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider">Directives</span>
               <AlertCircle className="h-5 w-5 text-theme-secondary" />
@@ -269,7 +270,7 @@ export default function EmployeeDashboard() {
         {/* Tasks and Alerts split grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Milestone List */}
-          <div className="glass rounded-xl p-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
             <h3 className="text-base font-bold text-theme-fg mb-4">Your Milestones</h3>
             {tasks.length === 0 ? (
               <div className="text-center py-12 text-sm text-theme-secondary border border-dashed border-theme-border rounded-lg">
@@ -304,7 +305,7 @@ export default function EmployeeDashboard() {
           </div>
 
           {/* Active Broadcasts */}
-          <div className="glass rounded-xl p-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
             <h3 className="text-base font-bold text-theme-fg mb-4">Lab Notices</h3>
             {alerts.length === 0 ? (
               <div className="text-center py-12 text-sm text-theme-secondary border border-dashed border-theme-border rounded-lg">

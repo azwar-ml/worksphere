@@ -390,24 +390,30 @@ async def get_workspace_messages(workspace_id: UUID, current_user: Dict[str, Any
                 detail="You do not have access to this workspace."
             )
             
-    # Fetch messages and profiles to join sender full name
+    # Fetch messages where receiver_id is NULL
     messages_resp = supabase.table("messages")\
-        .select("*, profiles(full_name)")\
-        .eq("workspace_id", workspace_id)\
+        .select("*")\
+        .is_("receiver_id", "null")\
         .order("created_at", desc=False)\
         .execute()
+        
+    sender_ids = list(set(msg["sender_id"] for msg in messages_resp.data))
+    profiles_map = {}
+    if sender_ids:
+        profiles_resp = supabase.table("profiles").select("id, full_name").in_("id", sender_ids).execute()
+        profiles_map = {p["id"]: p["full_name"] for p in profiles_resp.data}
         
     # Flatten the join result
     output = []
     for msg in messages_resp.data:
-        profiles = msg.get("profiles", {}) or {}
+        sender_name = profiles_map.get(msg["sender_id"], "Unknown")
         output.append({
             "id": msg["id"],
-            "workspace_id": msg["workspace_id"],
-            "user_id": msg["user_id"],
+            "sender_id": msg["sender_id"],
+            "receiver_id": msg.get("receiver_id"),
             "content": msg["content"],
             "created_at": msg["created_at"],
-            "full_name": profiles.get("full_name", "Unknown")
+            "full_name": sender_name
         })
         
     return output
@@ -435,11 +441,21 @@ async def post_workspace_message(
                 detail="You do not belong to this workspace."
             )
             
+    # Find the other member in the workspace to be the receiver
+    receiver_id = payload.receiver_id
+    if not receiver_id:
+        other_member = supabase.table("workspace_members")\
+            .select("user_id")\
+            .eq("workspace_id", workspace_id)\
+            .neq("user_id", user_id)\
+            .limit(1).execute()
+        receiver_id = other_member.data[0]["user_id"] if other_member.data else None
+        
     # Insert message
     try:
         insert_resp = supabase.table("messages").insert({
-            "workspace_id": str(workspace_id),
-            "user_id": str(user_id),
+            "sender_id": str(user_id),
+            "receiver_id": str(receiver_id) if receiver_id else None,
             "content": content
         }).execute()
     except Exception as e:

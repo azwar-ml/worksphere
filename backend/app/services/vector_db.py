@@ -127,7 +127,7 @@ class VectorDBService:
             print(f"VectorDB: Failed to index document: {e}")
 
     @classmethod
-    def add_message(cls, user_id: str, workspace_id: str, message_id: str, content: str) -> None:
+    def add_message(cls, user_id: str, workspace_id: str, message_id: str, content: str = "") -> None:
         """
         Adds a single chat message to the vector database or in-memory fallback.
         """

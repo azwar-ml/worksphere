@@ -7,21 +7,27 @@ import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { 
-  Mail, Lock, User, Briefcase, ArrowRight, ShieldCheck, 
+  Mail, Lock, User, Briefcase, ArrowRight, 
   RefreshCw, Cpu, CheckCircle2, AlertCircle
 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 
 export default function AuthPage() {
   const router = useRouter();
-  const { setAuth, isAuthenticated, initialize, isLoading, role: storeRole } = useAuthStore();
+  const { setAuth, isAuthenticated, initialize, isLoading } = useAuthStore();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState("employee");
+  const [labId, setLabId] = useState("gen_ai");
+  const [labs, setLabs] = useState<{ id: string; name: string }[]>([]);
   
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -35,20 +41,32 @@ export default function AuthPage() {
   }, [initialize]);
 
   useEffect(() => {
-    if (isAuthenticated && storeRole && !isTransitioning) {
-      if (storeRole === "pending") {
-        router.push("/pending");
-      } else if (storeRole === "admin" || storeRole === "superadmin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
+    if (isAuthenticated && !isTransitioning) {
+      router.push("/pending");
     }
-  }, [isAuthenticated, storeRole, router, isTransitioning]);
+  }, [isAuthenticated, router, isTransitioning]);
+
+  useEffect(() => {
+    const fetchLabs = async () => {
+      try {
+        const { data, error } = await supabase.from('labs').select('*').order('name', { ascending: true });
+        if (error) throw error;
+        if (data) {
+          setLabs(data);
+          if (data.length > 0) {
+            setLabId(data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch labs for signup:", err);
+      }
+    };
+    fetchLabs();
+  }, []);
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-theme-bg">
+      <div className="flex min-h-screen items-center justify-center bg-slate-900">
         <RefreshCw className="h-10 w-10 animate-spin text-purple-500" />
       </div>
     );
@@ -74,24 +92,17 @@ export default function AuthPage() {
           throw new Error(data.detail || "Authentication failed. Incorrect email or password.");
         }
 
-        setAuth(data.access_token, data.user_id, data.email, data.full_name, data.role);
+        setAuth(data.access_token, data.refresh_token, data.user_id, data.email, data.full_name, data.role, data.status, data.lab_id);
         setSuccessMsg("Authorized. Launching secure session...");
         
-        // Compute target route
-        const targetPath = data.role === "pending"
-          ? "/pending"
-          : (data.role === "admin" || data.role === "superadmin")
-            ? "/admin/dashboard"
-            : "/dashboard";
-        
-        // Trigger cinematic transition
-        setIsTransitioning(targetPath);
+        // Trigger cinematic transition to /pending (which will redirect non-pending users)
+        setIsTransitioning("/pending");
       } else {
-        // Signup Flow (always defaults profile role to 'pending' on backend)
+        // Signup Flow
         const res = await fetch(`${API_BASE}/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, full_name: fullName, role }),
+          body: JSON.stringify({ email, password, full_name: fullName, lab_id: labId }),
         });
 
         const data = await res.json();
@@ -99,9 +110,9 @@ export default function AuthPage() {
           throw new Error(data.detail || "Registration failed.");
         }
 
-        setErrorMsg(""); // Clear existing error banners on success
+        setErrorMsg("");
 
-        // Auto-login after registration (non-blocking fallback)
+        // Auto-login after registration
         try {
           const loginRes = await fetch(`${API_BASE}/auth/login`, {
             method: "POST",
@@ -111,15 +122,13 @@ export default function AuthPage() {
 
           if (loginRes.ok) {
             const loginData = await loginRes.json();
-            setAuth(loginData.access_token, loginData.user_id, loginData.email, loginData.full_name, loginData.role);
+            setAuth(loginData.access_token, loginData.refresh_token, loginData.user_id, loginData.email, loginData.full_name, loginData.role, loginData.status, loginData.lab_id);
           }
         } catch (loginErr) {
           console.warn("Auto-login failed:", loginErr);
         }
 
         setSuccessMsg("Registration successful! Initiating pending review...");
-        
-        // Immediate explicit routing to pending page
         setIsTransitioning("/pending");
       }
     } catch (err: any) {
@@ -138,14 +147,14 @@ export default function AuthPage() {
       filter: "blur(0px)",
     },
     animating: {
-      scale: [1, 0.92, 0.88, 32],
+      scale: [1, 0.92, 0.88, 20],
       borderRadius: ["1rem", "9999px", "9999px", "9999px"],
       width: ["100%", "72px", "64px", "64px"],
       height: ["auto", "72px", "64px", "64px"],
       opacity: [1, 1, 0.95, 0],
       filter: ["blur(0px)", "blur(0px)", "blur(2px)", "blur(6px)"],
       transition: {
-        duration: 1.6,
+        duration: 1.2,
         times: [0, 0.35, 0.55, 1],
         ease: ["easeOut", "easeInOut", "easeIn"] as any,
       }
@@ -153,19 +162,19 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50 dark:bg-[#0B0F19] transition-colors duration-300 animate-mesh select-none relative overflow-x-hidden">
+    <main className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50 dark:bg-[#0B0F19] transition-colors duration-300 select-none relative overflow-x-hidden font-sans">
       
       {/* Floating Theme Switcher */}
-      <div className="absolute top-6 right-6 z-25">
+      <div className="absolute top-6 right-6 z-20">
         <ThemeToggle />
       </div>
 
-      {/* LEFT COLUMN: Branding & Institutional Information */}
+      {/* LEFT COLUMN: Prestigious Branding */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 py-12 z-10">
         
-        {/* Logos Flex Container (full color with framed cards) */}
-        <div className="flex items-center gap-5 mb-10 animate-fade-up" style={{ animationDelay: "100ms" }}>
-          <div className="relative h-14 w-28 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105">
+        {/* Logos Flex Container */}
+        <div className="flex items-center gap-5 mb-10">
+          <div className="relative h-14 w-28 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105 border border-slate-200">
             <Image 
               src="/logos/ncai.jpg" 
               alt="NCAI Logo" 
@@ -175,7 +184,7 @@ export default function AuthPage() {
               unoptimized
             />
           </div>
-          <div className="relative h-14 w-24 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105">
+          <div className="relative h-14 w-24 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105 border border-slate-200">
             <Image 
               src="/logos/kics.png" 
               alt="KICS Logo" 
@@ -185,7 +194,7 @@ export default function AuthPage() {
               unoptimized
             />
           </div>
-          <div className="relative h-14 w-28 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105">
+          <div className="relative h-14 w-28 rounded-xl shadow-md bg-white p-1.5 transition-all duration-300 hover:scale-105 border border-slate-200">
             <Image 
               src="/logos/uet.png" 
               alt="UET Logo" 
@@ -197,38 +206,24 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Brand Information Section */}
-        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight text-slate-900 dark:text-white">
+        {/* Copywriting Section */}
+        <div>
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-wide leading-relaxed text-slate-900 dark:text-white">
             National Center of <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-650 dark:from-purple-400 dark:to-indigo-400">
               Artificial Intelligence
             </span>
           </h1>
           <h2 className="text-[10px] sm:text-xs font-bold text-purple-650 dark:text-purple-400 uppercase tracking-[0.2em] mt-3.5 flex items-center gap-1.5">
-            <Cpu className="h-3.5 w-3.5" /> KICS RESEARCH ECOSYSTEM
+            <Cpu className="h-3.5 w-3.5" /> NCAI LAB MANAGEMENT GATEWAY
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-350 mt-6 max-w-md font-medium leading-relaxed tracking-wide">
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mt-6 max-w-md font-medium leading-relaxed tracking-wide">
             Advancing the frontiers of artificial intelligence through rigorous algorithmic research, autonomous agent architectures, and scalable deep learning ecosystems. Empowering the next generation of intelligent systems.
           </p>
-          <div className="mt-8 space-y-4 text-xs font-semibold text-slate-500 dark:text-zinc-400 max-w-md leading-relaxed border-t border-slate-200/50 dark:border-zinc-800/40 pt-6">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-purple-550 flex-shrink-0"></span>
-              <span>
-                <span className="font-semibold text-purple-600 dark:text-purple-400">NCAI Foundry Lab</span> &mdash; Machine Learning & Decision Support Systems
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-purple-550 flex-shrink-0"></span>
-              <span>
-                <span className="font-semibold text-purple-600 dark:text-purple-400">KICS Ecosystem</span> &mdash; Autonomous Agents & System Validation Models
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Floating Card Portal */}
+      {/* RIGHT COLUMN: Auth Card Portal */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-12 relative z-10 bg-slate-100/10 dark:bg-black/10 backdrop-blur-sm lg:backdrop-blur-none border-t lg:border-t-0 lg:border-l border-slate-200/30 dark:border-slate-800/30">
         
         {/* Ambient glow behind card */}
@@ -244,11 +239,10 @@ export default function AuthPage() {
               router.push(isTransitioning);
             }
           }}
-          className="w-full max-w-md bg-white/80 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl p-8 relative card-glow overflow-hidden"
+          className="w-full max-w-md bg-white/80 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl p-8 relative overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-indigo-500/5 rounded-2xl pointer-events-none"></div>
           
-          {/* Internal form contents that fade out immediately on submission success */}
           <motion.div
             animate={{ opacity: isTransitioning ? 0 : 1 }}
             transition={{ duration: 0.2 }}
@@ -263,8 +257,8 @@ export default function AuthPage() {
               </p>
             </div>
 
-            {/* Toggle Tabs */}
-            <div className="flex rounded-xl bg-slate-200/80 dark:bg-slate-800/80 p-1.5 border border-slate-300 dark:border-slate-700 mb-6">
+            {/* High Contrast Segmented Toggle */}
+            <div className="flex rounded-xl bg-slate-200 dark:bg-slate-800 p-1.5 border border-slate-300 dark:border-slate-700 mb-6">
               <button
                 type="button"
                 onClick={() => {
@@ -274,8 +268,8 @@ export default function AuthPage() {
                 }}
                 className={`transition-all duration-200 py-2.5 text-sm rounded-lg flex-1 text-center font-medium cursor-pointer ${
                   isLogin 
-                    ? "bg-purple-600 text-white shadow-md font-semibold dark:bg-purple-600 dark:text-white" 
-                    : "text-slate-600 hover:text-slate-900 font-medium dark:text-slate-400 dark:hover:text-white"
+                    ? "bg-purple-600 text-white shadow-md font-semibold" 
+                    : "text-slate-650 hover:text-slate-900 font-medium dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 Sign In
@@ -289,8 +283,8 @@ export default function AuthPage() {
                 }}
                 className={`transition-all duration-200 py-2.5 text-sm rounded-lg flex-1 text-center font-medium cursor-pointer ${
                   !isLogin 
-                    ? "bg-purple-600 text-white shadow-md font-semibold dark:bg-purple-600 dark:text-white" 
-                    : "text-slate-600 hover:text-slate-900 font-medium dark:text-slate-400 dark:hover:text-white"
+                    ? "bg-purple-600 text-white shadow-md font-semibold" 
+                    : "text-slate-650 hover:text-slate-900 font-medium dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
                 Create Account
@@ -299,7 +293,7 @@ export default function AuthPage() {
 
             {/* Response Alerts */}
             {errorMsg && (
-              <div className="mb-5 rounded-xl bg-red-500/5 border border-red-500/20 p-4 text-xs text-red-650 dark:text-red-400 flex items-start gap-2.5">
+              <div className="mb-5 rounded-xl bg-red-500/5 border border-red-500/20 p-4 text-xs text-red-600 dark:text-red-400 flex items-start gap-2.5">
                 <AlertCircle className="h-4.5 w-4.5 text-red-500 flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
@@ -372,23 +366,35 @@ export default function AuthPage() {
                 </div>
               </div>
 
+              {/* Lab Selector for Sign Up */}
               {!isLogin && (
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                    Requested Role
+                    Research Lab Scoping
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 dark:text-zinc-500">
                       <Briefcase className="h-4.5 w-4.5" />
                     </span>
                     <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full rounded-lg bg-white/20 dark:bg-zinc-900/30 border border-slate-200/60 dark:border-zinc-850 py-2.5 pl-11 pr-4 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 appearance-none transition-all"
+                      value={labId}
+                      onChange={(e) => setLabId(e.target.value)}
+                      className="w-full rounded-lg bg-white/20 dark:bg-zinc-900/30 border border-slate-200/60 dark:border-zinc-850 py-2.5 pl-11 pr-10 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 appearance-none transition-all"
                     >
-                      <option value="employee" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Employee / Researcher</option>
-                      <option value="admin" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Admin</option>
-                      <option value="superadmin" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Superadmin</option>
+                      {labs.length === 0 ? (
+                        <>
+                          <option value="gen_ai" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Generative AI Lab (GenAI)</option>
+                          <option value="ai" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Artificial Intelligence Lab (AI)</option>
+                          <option value="web_dev" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Web Development Lab (WebDev)</option>
+                          <option value="cyber_sec" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Cyber Security Lab (CyberSec)</option>
+                        </>
+                      ) : (
+                        labs.map(lab => (
+                          <option key={lab.id} value={lab.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                            {lab.name}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
                 </div>
@@ -397,7 +403,7 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-550 text-white py-3.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none mt-6 cursor-pointer button-glow"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-550 text-white py-3.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none mt-6 cursor-pointer"
               >
                 {submitting ? (
                   <RefreshCw className="h-4.5 w-4.5 animate-spin" />

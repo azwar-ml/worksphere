@@ -216,7 +216,7 @@ export default function EmployeeDetailPage() {
     <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 md:ml-64">
         {/* Back and Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
@@ -239,7 +239,7 @@ export default function EmployeeDetailPage() {
           <div className="flex gap-2">
             <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-3 py-1 text-xs text-purple-650 dark:text-purple-400 font-semibold flex items-center gap-1">
               <Tag className="h-3 w-3" />
-              {employee?.role || "employee"}
+              {(employee?.role ? (employee.role.charAt(0).toUpperCase() + employee.role.slice(1)) : "Employee")}
             </span>
           </div>
         </div>

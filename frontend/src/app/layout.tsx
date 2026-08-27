@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "Advanced management dashboard for NCAI Gen AI Research Lab.",
 };
 
+import AlertsWidget from "../components/AlertsWidget";
+
 export default function RootLayout({
   children,
 }: {
@@ -23,6 +25,7 @@ export default function RootLayout({
       <body className="min-h-full bg-theme-bg text-theme-fg font-sans flex flex-col selection:bg-purple-500 selection:text-white transition-colors duration-200">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
+          <AlertsWidget />
         </ThemeProvider>
       </body>
     </html>

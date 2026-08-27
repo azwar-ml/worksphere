@@ -9,6 +9,7 @@ class UserSignup(BaseModel):
     password: str = Field(..., min_length=6)
     full_name: str
     role: str = Field("employee", pattern="^(pending|employee|admin|superadmin)$")
+    lab_id: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -22,12 +23,16 @@ class TokenResponse(BaseModel):
     email: str
     full_name: str
     role: str
+    lab_id: Optional[str] = None
+    status: str
 
 class UserProfile(BaseModel):
     id: UUID
     email: str
     full_name: Optional[str] = None
     role: str
+    lab_id: Optional[str] = None
+    status: str
     created_at: datetime
 
     class Config:
@@ -125,11 +130,12 @@ class WorkspaceMemberResponse(BaseModel):
 # --- MESSAGE (CHAT) SCHEMAS ---
 class MessageCreate(BaseModel):
     content: str = Field(..., min_length=1)
+    receiver_id: Optional[UUID] = None
 
 class MessageResponse(BaseModel):
     id: UUID
-    workspace_id: UUID
-    user_id: UUID
+    sender_id: UUID
+    receiver_id: Optional[UUID] = None
     content: str
     created_at: datetime
     full_name: Optional[str] = None
@@ -139,8 +145,9 @@ class MessageResponse(BaseModel):
 
 # --- ALERT SCHEMAS ---
 class AlertCreate(BaseModel):
-    target_type: str = Field(..., pattern="^(global|workspace|user)$")
+    target_type: str = Field(..., pattern="^(global|workspace|user|lab)$")
     target_id: Optional[UUID] = None # Null for global, workspace_id or user_id otherwise
+    target_lab: Optional[str] = None
     title: str = Field(..., min_length=1)
     content: str = Field(..., min_length=1)
     priority: str = Field("normal", pattern="^(low|normal|high|critical)$")
@@ -150,6 +157,7 @@ class AlertResponse(BaseModel):
     sender_id: UUID
     target_type: str
     target_id: Optional[UUID] = None
+    target_lab: Optional[str] = None
     title: str
     content: str
     priority: str
@@ -166,3 +174,22 @@ class SummarizeRequest(BaseModel):
 class SummarizeResponse(BaseModel):
     summary: str
     sources: List[Dict[str, Any]]
+
+# --- DOSSIER RAG SCHEMAS ---
+class DossierQueryRequest(BaseModel):
+    query: str = Field(..., min_length=3)
+
+class DossierQueryResponse(BaseModel):
+    query: str
+    intent: str
+    resolved_entities: Dict[str, Any]
+    response: str
+    provider: str
+    model: str
+    source_count: int
+    sources: List[Dict[str, Any]]
+
+class DossierSyncResponse(BaseModel):
+    status: str
+    synced_records: Dict[str, int]
+

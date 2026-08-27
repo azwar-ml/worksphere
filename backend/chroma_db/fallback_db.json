@@ -25011,5 +25011,14 @@
       "workspace_id": "bab0aebb-030f-4d02-98e8-5e61da78b4ea",
       "type": "message"
     }
+  },
+  {
+    "id": "msg_ed95c2cf-6e88-4d6e-8fb2-6f8aed209eed",
+    "content": "send me details of all employess",
+    "metadata": {
+      "user_id": "560fcbc7-cf43-4296-a516-008c62fb1559",
+      "workspace_id": "9aa5b791-7e99-481f-97ca-cf0f0078b5af",
+      "type": "message"
+    }
   }
 ]

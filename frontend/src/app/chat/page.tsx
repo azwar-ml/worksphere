@@ -16,8 +16,8 @@ interface Workspace {
 
 interface Message {
   id: string;
-  workspace_id: string;
-  user_id: string;
+  sender_id: string;
+  receiver_id?: string;
   content: string;
   created_at: string;
   full_name: string;
@@ -44,7 +44,7 @@ const cleanWorkspaceDescription = (desc: string): string => {
 
 export default function ChatPage() {
   const router = useRouter();
-  const { token, isAuthenticated, initialize, isLoading, role, userId, clearAuth } = useAuthStore();
+  const { token, isAuthenticated, initialize, isLoading, role, status, userId, clearAuth } = useAuthStore();
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null);
@@ -67,12 +67,12 @@ export default function ChatPage() {
         router.push("/");
         return;
       }
-      if (role === "pending") {
+      if (status === "pending") {
         router.push("/pending");
         return;
       }
     }
-  }, [isAuthenticated, isLoading, role, router]);
+  }, [isAuthenticated, isLoading, status, router]);
 
   // Fetch all workspaces user is a member of
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function ChatPage() {
     <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
       <Sidebar />
 
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden md:ml-64">
         {fetchingWorkspaces ? (
           <div className="flex flex-1 animate-pulse">
             <div className="w-64 border-r border-theme-sidebar-border bg-theme-sidebar flex flex-col py-6 px-4 space-y-4 pt-4">
@@ -253,7 +253,7 @@ export default function ChatPage() {
                       </div>
                     ) : (
                       messages.map(msg => {
-                        const isOwnMessage = msg.user_id === userId;
+                        const isOwnMessage = msg.sender_id === userId;
                         return (
                           <div 
                             key={msg.id}

@@ -71,7 +71,7 @@ export default function ResearchersPage() {
     <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 md:ml-64">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-theme-fg flex items-center gap-2">
             NCAI Lab Researchers Directory <ShieldCheck className="h-5 w-5 text-purple-500" />
@@ -105,7 +105,7 @@ export default function ResearchersPage() {
                       <h4 className="text-sm font-bold text-theme-fg truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{emp.full_name}</h4>
                       <p className="text-xs text-theme-secondary truncate mt-0.5">{emp.email}</p>
                       <span className="inline-block mt-2 rounded bg-purple-500/10 px-2 py-0.5 text-[9px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                        {emp.role}
+                        {emp.role ? (emp.role.charAt(0).toUpperCase() + emp.role.slice(1)) : ""}
                       </span>
                     </div>
                   </div>

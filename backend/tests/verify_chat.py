@@ -10,18 +10,18 @@ from uuid import UUID
 
 # Mock users
 TEST_EMPLOYEE = {
-    "id": "2af9ecda-57b7-4e22-afed-8eb2f5b87659",
-    "email": "lifera1082@netiren.com",
+    "id": "b99453c3-c71c-4d4b-876b-8f40583bc6d8",
+    "email": "fahad.ai@ncai.gov",
     "role": "employee",
-    "full_name": "fahad ali",
+    "full_name": "fahad",
     "created_at": "2026-08-09T00:00:00Z"
 }
 
 TEST_ADMIN = {
-    "id": "689305dd-f441-472d-b9e3-966e67e49f4b",
-    "email": "admin_user_1816@example.com",
+    "id": "1ac3b48c-c090-48f4-827d-5d57f0eae042",
+    "email": "admin.ai@ncai.gov",
     "role": "admin",
-    "full_name": "Admin Test User",
+    "full_name": "ADMIN (AI)",
     "created_at": "2026-08-09T00:00:00Z"
 }
 

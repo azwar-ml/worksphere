@@ -31,7 +31,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Security(
             "id": auth_user.id,
             "email": auth_user.email,
             "full_name": profile.get("full_name"),
-            "role": profile.get("role", "employee")
+            "role": profile.get("role", "employee"),
+            "lab_id": profile.get("lab_id"),
+            "status": profile.get("status", "pending")
         }
     except Exception as e:
         raise HTTPException(

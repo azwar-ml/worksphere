@@ -64,7 +64,10 @@ export default function ResearcherDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   
   const [fetching, setFetching] = useState(true);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Tabbed widget state
+  const [activeWidget, setActiveWidget] = useState<'chat' | 'rag'>('chat');
 
   // RAG Summarizer state
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,8 +83,16 @@ export default function ResearcherDetailPage() {
   const [fetchingChat, setFetchingChat] = useState(true);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    if (chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth"
+        });
+      });
+    }
+  }, [chatMessages, activeWidget]);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -124,14 +135,15 @@ export default function ResearcherDetailPage() {
     }
   };
 
-  // Poll chat history every 4 seconds
   useEffect(() => {
     if (!token || !id) return;
-    loadChat();
-    const interval = setInterval(() => {
+    let isMounted = true;
+    if (isMounted) {
       loadChat();
-    }, 4000);
-    return () => clearInterval(interval);
+    }
+    return () => {
+      isMounted = false;
+    };
   }, [token, id]);
 
   const loadData = async () => {
@@ -176,7 +188,7 @@ export default function ResearcherDetailPage() {
         setTasks(filteredTasks);
       }
 
-      // 5. Load chat messages
+      // 5. Load chat messages (already handled by the other useEffect, or we can await it here, but no polling)
       await loadChat();
 
     } catch (err) {
@@ -238,8 +250,7 @@ export default function ResearcherDetailPage() {
     // Optimistic UI update
     const tempMsg = {
       id: tempId,
-      workspace_id: "",
-      user_id: "admin-id",
+      sender_id: "admin-id",
       content: textToSend,
       created_at: new Date().toISOString(),
       full_name: "Admin"
@@ -260,6 +271,7 @@ export default function ResearcherDetailPage() {
       const data = await res.json();
       if (res.ok) {
         setChatMessages(prev => prev.map(m => m.id === tempId ? data : m));
+        await loadChat();
       } else {
         showToast(data.detail || "Failed to deliver message.", "error");
         setChatMessages(prev => prev.filter(m => m.id !== tempId));
@@ -295,13 +307,13 @@ export default function ResearcherDetailPage() {
     <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 md:ml-64">
         {/* Back and Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/admin/researchers")}
-              className="p-2 rounded-lg bg-zinc-900/10 dark:bg-zinc-900/50 border border-theme-border hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-slate-100 text-slate-900 border border-slate-300 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:border-slate-700 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               title="Back to Researchers Directory"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -326,7 +338,7 @@ export default function ResearcherDetailPage() {
             </span>
             <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-3 py-1 text-xs text-purple-650 dark:text-purple-400 font-semibold flex items-center gap-1">
               <Tag className="h-3 w-3" />
-              {employee?.role || "employee"}
+              {(employee?.role ? (employee.role.charAt(0).toUpperCase() + employee.role.slice(1)) : "Employee")}
             </span>
           </div>
         </div>
@@ -498,156 +510,186 @@ export default function ResearcherDetailPage() {
 
           </div>
 
-          {/* RIGHT COLUMN: RAG AI Summarizer & Direct message inputs (col-span-1) */}
-          <div className="xl:col-span-1 space-y-8">
-            
-            {/* RAG AI Summarizer Panel */}
-            <div className="glass rounded-xl p-6 border border-purple-500/20 shadow-purple-500/5 shadow-md">
-              <h3 className="text-sm font-bold text-theme-fg mb-4 flex items-center gap-2">
-                <Cpu className="h-4.5 w-4.5 text-purple-500" />
-                NCAI Vector RAG AI Summarizer
-              </h3>
-              <p className="text-[11px] text-theme-secondary mb-4">Run contextual search syntheses querying strictly this researcher's ingested notes.</p>
-              
-              <form onSubmit={handleSummarize} className="space-y-3.5">
-                <div className="flex flex-col">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter context query parameters..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-lg bg-zinc-900/10 dark:bg-zinc-900/50 border border-theme-border py-2 px-3 text-xs text-theme-fg focus:outline-none focus:ring-1 focus:ring-purple-500 placeholder-zinc-500"
-                  />
-                </div>
+          {/* RIGHT COLUMN: Tabbed Widget System */}
+          <div className="xl:col-span-1 space-y-6">
+            {/* Tab Toggle Buttons */}
+            <div className="flex p-1 bg-gray-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveWidget('chat')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeWidget === 'chat'
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 bg-transparent"
+                }`}
+              >
+                <Send className="h-3.5 w-3.5" />
+                Two-Way Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveWidget('rag')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeWidget === 'rag'
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 bg-transparent"
+                }`}
+              >
+                <Cpu className="h-3.5 w-3.5" />
+                AI Dossier RAG
+              </button>
+            </div>
+
+            {/* Conditional Rendering of widgets */}
+            {activeWidget === 'chat' ? (
+              <div className="glass rounded-xl p-6 flex flex-col h-[500px]">
+                <h3 className="text-sm font-bold text-theme-fg mb-3 flex items-center gap-2">
+                  <Send className="h-4.5 w-4.5 text-purple-500" />
+                  Two-Way Chat Log
+                </h3>
                 
-                <button
-                  type="submit"
-                  disabled={summarizing}
-                  className="w-full rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold text-xs py-2 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                {/* Messages log */}
+                <div 
+                  ref={chatContainerRef}
+                  className="flex-1 overflow-y-auto border border-theme-border rounded-lg p-3 bg-zinc-900/10 dark:bg-zinc-900/20 mb-3 space-y-3"
                 >
-                  {summarizing ? (
-                    <Clock className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <>
-                      <span>Query Dossier RAG</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </>
-                  )}
-                </button>
-
-                <div className="flex flex-wrap gap-1.5 pt-1 text-[10px]">
-                  {presetQueries.map((q, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSearchQuery(q)}
-                      className="rounded bg-zinc-200 dark:bg-zinc-800 border border-theme-border px-2 py-0.5 text-theme-secondary hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors cursor-pointer"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </form>
-
-              {(summaryResult || summarizeError) && (
-                <div className="mt-4 border-t border-theme-border pt-4">
-                  {summarizeError && (
-                    <div className="rounded bg-red-500/5 border border-red-500/20 p-3 text-[11px] text-red-500">
-                      {summarizeError}
+                  {fetchingChat ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Clock className="h-5 w-5 animate-spin text-purple-500" />
                     </div>
-                  )}
-
-                  {summaryResult && (
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">RAG Context Output Summary</span>
-                        <div className="bg-zinc-900/10 dark:bg-zinc-900/40 rounded-lg p-3.5 border border-theme-border text-xs text-theme-fg leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {summaryResult}
-                        </div>
-                      </div>
-
-                      {summarySources.length > 0 && (
-                        <div>
-                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Dossier Chunks Audited</span>
-                          <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                            {summarySources.map((src) => (
-                              <div key={src.id} className="p-2 bg-zinc-200/50 dark:bg-zinc-950/40 border border-theme-border rounded text-[10px] text-theme-secondary">
-                                <p className="line-clamp-2 italic">"{src.content}"</p>
-                                <span className="font-semibold text-purple-600 dark:text-purple-400 text-[8px] uppercase tracking-widest block mt-1">{src.description}</span>
-                              </div>
-                            ))}
+                  ) : chatMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-[10px] text-theme-secondary">
+                      No message history. Write your first update!
+                    </div>
+                  ) : (
+                    chatMessages.map((msg: any) => {
+                      const isOwnMessage = msg.sender_id === "admin-id" || msg.full_name === "Admin";
+                      return (
+                        <div 
+                          key={msg.id}
+                          className={`flex flex-col max-w-[85%] ${isOwnMessage ? "ml-auto items-end" : "mr-auto items-start"}`}
+                        >
+                          <span className="text-[8px] text-theme-secondary mb-0.5 px-0.5">
+                            {isOwnMessage ? "You" : msg.full_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed ${
+                            isOwnMessage 
+                              ? "bg-purple-600 text-white rounded-tr-none" 
+                              : "glass text-theme-fg rounded-tl-none"
+                          }`}>
+                            {msg.content}
                           </div>
                         </div>
-                      )}
-                    </div>
+                      );
+                    })
                   )}
                 </div>
-              )}
-            </div>
-
-            {/* Direct Message Console */}
-            <div className="glass rounded-xl p-6 flex flex-col h-[400px]">
-              <h3 className="text-sm font-bold text-theme-fg mb-3 flex items-center gap-2">
-                <Send className="h-4.5 w-4.5 text-purple-500" />
-                Two-Way Chat Log
-              </h3>
-              
-              {/* Messages log */}
-              <div className="flex-1 overflow-y-auto border border-theme-border rounded-lg p-3 bg-zinc-900/10 dark:bg-zinc-900/20 mb-3 space-y-3">
-                {fetchingChat ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Clock className="h-5 w-5 animate-spin text-purple-500" />
+                
+                <form onSubmit={handleSendMessage} className="mt-auto">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Type message to researcher..."
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      className="w-full rounded-lg bg-zinc-900/10 dark:bg-zinc-900/50 border border-theme-border py-2 pl-3 pr-10 text-xs text-theme-fg focus:outline-none focus:ring-1 focus:ring-purple-500 placeholder-zinc-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sendingMsg || !messageText.trim()}
+                      className="absolute inset-y-1 right-1 flex items-center justify-center h-7 w-7 rounded-md bg-purple-600 text-white hover:bg-purple-500 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <Send className="h-3 w-3" />
+                    </button>
                   </div>
-                ) : chatMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-[10px] text-theme-secondary">
-                    No message history. Write your first update!
-                  </div>
-                ) : (
-                  chatMessages.map((msg: any) => {
-                    const isOwnMessage = msg.user_id === "admin-id" || msg.full_name === "Admin";
-                    return (
-                      <div 
-                        key={msg.id}
-                        className={`flex flex-col max-w-[85%] ${isOwnMessage ? "ml-auto items-end" : "mr-auto items-start"}`}
-                      >
-                        <span className="text-[8px] text-theme-secondary mb-0.5 px-0.5">
-                          {isOwnMessage ? "You" : msg.full_name} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed ${
-                          isOwnMessage 
-                            ? "bg-purple-600 text-white rounded-tr-none" 
-                            : "glass text-theme-fg rounded-tl-none"
-                        }`}>
-                          {msg.content}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={chatEndRef} />
+                </form>
               </div>
-              
-              <form onSubmit={handleSendMessage} className="mt-auto">
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Type message to researcher..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    className="w-full rounded-lg bg-zinc-900/10 dark:bg-zinc-900/50 border border-theme-border py-2 pl-3 pr-10 text-xs text-theme-fg focus:outline-none focus:ring-1 focus:ring-purple-500 placeholder-zinc-500"
-                  />
+            ) : (
+              <div className="glass rounded-xl p-6 border border-purple-500/20 shadow-purple-500/5 shadow-md">
+                <h3 className="text-sm font-bold text-theme-fg mb-4 flex items-center gap-2">
+                  <Cpu className="h-4.5 w-4.5 text-purple-500" />
+                  NCAI Vector RAG AI Summarizer
+                </h3>
+                <p className="text-[11px] text-theme-secondary mb-4">Run contextual search syntheses querying strictly this researcher's ingested notes.</p>
+                
+                <form onSubmit={handleSummarize} className="space-y-3.5">
+                  <div className="flex flex-col">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Enter context query parameters..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-lg bg-zinc-900/10 dark:bg-zinc-900/50 border border-theme-border py-2 px-3 text-xs text-theme-fg focus:outline-none focus:ring-1 focus:ring-purple-500 placeholder-zinc-500"
+                    />
+                  </div>
+                  
                   <button
                     type="submit"
-                    disabled={sendingMsg || !messageText.trim()}
-                    className="absolute inset-y-1 right-1 flex items-center justify-center h-7 w-7 rounded-md bg-purple-600 text-white hover:bg-purple-500 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                    disabled={summarizing}
+                    className="w-full rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold text-xs py-2 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
                   >
-                    <Send className="h-3 w-3" />
+                    {summarizing ? (
+                      <Clock className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <span>Query Dossier RAG</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </>
+                    )}
                   </button>
-                </div>
-              </form>
-            </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1 text-[10px]">
+                    {presetQueries.map((q, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSearchQuery(q)}
+                        className="rounded bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-1 hover:bg-slate-200 hover:text-purple-700 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700 dark:hover:text-purple-400 transition-colors font-semibold cursor-pointer"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </form>
+
+                {(summaryResult || summarizeError) && (
+                  <div className="mt-4 border-t border-theme-border pt-4">
+                    {summarizeError && (
+                      <div className="rounded bg-red-500/5 border border-red-500/20 p-3 text-[11px] text-red-500">
+                        {summarizeError}
+                      </div>
+                    )}
+
+                    {summaryResult && (
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">RAG Context Output Summary</span>
+                          <div className="bg-zinc-900/10 dark:bg-zinc-900/40 rounded-lg p-3.5 border border-theme-border text-xs text-theme-fg leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                            {summaryResult}
+                          </div>
+                        </div>
+
+                        {summarySources.length > 0 && (
+                          <div>
+                            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Dossier Chunks Audited</span>
+                            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                              {summarySources.map((src) => (
+                                <div key={src.id} className="p-2 bg-zinc-200/50 dark:bg-zinc-950/40 border border-theme-border rounded text-[10px] text-theme-secondary">
+                                  <p className="line-clamp-2 italic">"{src.content}"</p>
+                                  <span className="font-semibold text-purple-600 dark:text-purple-400 text-[8px] uppercase tracking-widest block mt-1">{src.description}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         </div>

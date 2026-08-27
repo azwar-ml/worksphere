@@ -19,7 +19,9 @@ async def signup(user_data: UserSignup):
                 "email_confirm": True,
                 "user_metadata": {
                     "full_name": user_data.full_name,
-                    "role": "pending"
+                    "role": "employee",
+                    "status": "pending",
+                    "lab_id": user_data.lab_id
                 }
             })
             if auth_response and auth_response.user:
@@ -32,7 +34,9 @@ async def signup(user_data: UserSignup):
                 "options": {
                     "data": {
                         "full_name": user_data.full_name,
-                        "role": "pending"
+                        "role": "employee",
+                        "status": "pending",
+                        "lab_id": user_data.lab_id
                     }
                 }
             })
@@ -55,10 +59,11 @@ async def signup(user_data: UserSignup):
                     "id": user_id,
                     "email": user_data.email,
                     "full_name": user_data.full_name,
-                    "role": "pending"
+                    "role": "employee",
+                    "status": "pending",
+                    "lab_id": user_data.lab_id
                 }).execute()
         except Exception as profile_err:
-            # If the database write fails (e.g. table doesn't exist yet), report clear instructions
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"User created in Auth, but failed to insert profile database. Ensure backend/schema.sql has been run. Error: {str(profile_err)}"
@@ -67,7 +72,8 @@ async def signup(user_data: UserSignup):
         return {
             "status": "success",
             "message": "Access request submitted",
-            "role": "pending"
+            "role": "employee",
+            "status": "pending"
         }
     except Exception as e:
         raise HTTPException(
@@ -103,18 +109,22 @@ async def login(credentials: UserLogin):
             metadata = auth_response.user.user_metadata or {}
             full_name = metadata.get("full_name", "")
             role = metadata.get("role", "employee")
+            lab_id = metadata.get("lab_id")
+            status_val = metadata.get("status", "pending")
             supabase.table("profiles").insert({
                 "id": user_id,
                 "email": credentials.email,
                 "full_name": full_name,
-                "role": role
+                "role": role,
+                "lab_id": lab_id,
+                "status": status_val
             }).execute()
-            role = role
-            full_name = full_name
         else:
             profile = profile_resp.data[0]
             role = profile.get("role", "employee")
             full_name = profile.get("full_name", "")
+            lab_id = profile.get("lab_id")
+            status_val = profile.get("status", "pending")
             
         return TokenResponse(
             access_token=access_token,
@@ -122,7 +132,9 @@ async def login(credentials: UserLogin):
             user_id=user_id,
             email=credentials.email,
             full_name=full_name,
-            role=role
+            role=role,
+            lab_id=lab_id,
+            status=status_val
         )
     except Exception as e:
         raise HTTPException(

@@ -20,7 +20,7 @@ interface AttendanceRecord {
 
 export default function AttendancePage() {
   const router = useRouter();
-  const { token, isAuthenticated, initialize, isLoading, role, clearAuth } = useAuthStore();
+  const { token, isAuthenticated, initialize, isLoading, role, status, clearAuth } = useAuthStore();
 
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -40,12 +40,12 @@ export default function AttendancePage() {
         router.push("/");
         return;
       }
-      if (role === "pending") {
+      if (status === "pending") {
         router.push("/pending");
         return;
       }
     }
-  }, [isAuthenticated, isLoading, role, router]);
+  }, [isAuthenticated, isLoading, status, router]);
 
   const loadHistory = async () => {
     if (!token) return;
@@ -167,7 +167,7 @@ export default function AttendancePage() {
     <div className="flex h-screen bg-theme-bg text-theme-fg overflow-hidden transition-colors duration-200">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto px-8 py-8 md:ml-64">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-theme-fg flex items-center gap-2">
