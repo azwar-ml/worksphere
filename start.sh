@@ -1,15 +1,31 @@
 #!/bin/bash
-# 1. Start the Python FastAPI backend in the background
-echo "Starting FastAPI backend..."
-cd /app/backend
-# Notice we removed --reload for production
-uvicorn main:app --host 127.0.0.1 --port 8000 &
 
-# 2. Wait a few seconds for the backend to start
+# Define port: use cloud $PORT if present, otherwise default to 3000 locally
+APP_PORT="${PORT:-3000}"
+
+# 1. Start FastAPI backend
+echo "Starting FastAPI backend..."
+cd ./backend
+
+# If a local virtual environment exists, use its Python; otherwise use system python (Docker/Railway)
+if [ -d "venv/Scripts" ]; then
+    ./venv/Scripts/python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+elif [ -d "venv/bin" ]; then
+    ./venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+else
+    python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+fi
+
+# 2. Give backend time to initialize
 sleep 5
 
-# 3. Start the Next.js frontend in the foreground
-echo "Starting Next.js frontend..."
-cd /app/frontend
-# Use production start, binding to Render's port
-npm run start -- -p $PORT
+# 3. Start Next.js frontend
+echo "Starting Next.js frontend on port $APP_PORT..."
+cd ../frontend
+
+# In production (Docker/Railway), run build artifact; locally, fallback to dev if not built
+if [ -d ".next" ]; then
+    npm run start -- -p "$APP_PORT"
+else
+    npm run dev -- -p "$APP_PORT"
+fi
