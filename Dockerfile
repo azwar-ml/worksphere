@@ -20,6 +20,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Setup Next.js Frontend
 WORKDIR /app/frontend
 RUN npm install
+
+# ---------------------------------------------------------
+# DECLARE RENDER ENVIRONMENT VARIABLES FOR THE BUILD PHASE
+# ---------------------------------------------------------
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# ---------------------------------------------------------
+
 # BUILD HERE where Render gives us plenty of RAM!
 RUN npm run build 
 
