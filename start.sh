@@ -20,15 +20,11 @@ fi
 sleep 5
 
 # 3. Start Next.js frontend
-echo "Starting Next.js frontend on port $APP_PORT..."
+echo "Building and Starting Next.js frontend on port $APP_PORT..."
 cd ../frontend
 
-# Force Next.js to listen on 0.0.0.0 so Render's external router can connect
-export HOSTNAME="0.0.0.0"
+# Build the production app now that Render has injected all API keys
+npm run build
 
-# In production (Docker/Railway/Render), run build artifact; locally, fallback to dev if not built
-if [ -d ".next" ]; then
-    npm run start -- -H 0.0.0.0 -p "$APP_PORT"
-else
-    npm run dev -- -H 0.0.0.0 -p "$APP_PORT"
-fi
+# Start the production server (No file watching, no OS limits!)
+npm run start -- -H 0.0.0.0 -p "$APP_PORT"
