@@ -9,10 +9,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        // If your Next.js frontend calls endpoints starting with /api/ (e.g., /api/chat)
+        // Catch all frontend requests starting with /api/
         source: "/api/:path*",
-        // Forward them to the internal FastAPI server
-        destination: "http://127.0.0.1:8000/:path*",
+        // Forward them to FastAPI, keeping the /api/ intact
+        destination: "http://127.0.0.1:8000/api/:path*", 
       },
     ];
   },
