@@ -7,7 +7,7 @@ APP_PORT="${PORT:-3000}"
 echo "Starting FastAPI backend..."
 cd ./backend
 
-# If a local virtual environment exists, use its Python; otherwise use system python (Docker/Railway)
+# If a local virtual environment exists, use its Python; otherwise use system python (Docker/Railway/Render)
 if [ -d "venv/Scripts" ]; then
     ./venv/Scripts/python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
 elif [ -d "venv/bin" ]; then
@@ -23,9 +23,12 @@ sleep 5
 echo "Starting Next.js frontend on port $APP_PORT..."
 cd ../frontend
 
-# In production (Docker/Railway), run build artifact; locally, fallback to dev if not built
+# Force Next.js to listen on 0.0.0.0 so Render's external router can connect
+export HOSTNAME="0.0.0.0"
+
+# In production (Docker/Railway/Render), run build artifact; locally, fallback to dev if not built
 if [ -d ".next" ]; then
-    npm run start -- -p "$APP_PORT"
+    npm run start -- -H 0.0.0.0 -p "$APP_PORT"
 else
-    npm run dev -- -p "$APP_PORT"
+    npm run dev -- -H 0.0.0.0 -p "$APP_PORT"
 fi
