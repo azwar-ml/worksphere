@@ -20,6 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Setup Next.js Frontend
 WORKDIR /app/frontend
 RUN npm install
+# BUILD HERE where Render gives us plenty of RAM!
+RUN npm run build 
 
 # Go back to root and make start script executable
 WORKDIR /app

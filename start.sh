@@ -7,7 +7,6 @@ APP_PORT="${PORT:-3000}"
 echo "Starting FastAPI backend..."
 cd ./backend
 
-# If a local virtual environment exists, use its Python; otherwise use system python (Docker/Railway/Render)
 if [ -d "venv/Scripts" ]; then
     ./venv/Scripts/python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
 elif [ -d "venv/bin" ]; then
@@ -20,11 +19,8 @@ fi
 sleep 5
 
 # 3. Start Next.js frontend
-echo "Building and Starting Next.js frontend on port $APP_PORT..."
+echo "Starting Next.js frontend on port $APP_PORT..."
 cd ../frontend
 
-# Build the production app now that Render has injected all API keys
-npm run build
-
-# Start the production server (No file watching, no OS limits!)
+# Start the pre-built production server instantly
 npm run start -- -H 0.0.0.0 -p "$APP_PORT"
